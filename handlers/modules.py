@@ -4,7 +4,7 @@ from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 
 import database as db
-from config import ADMIN_ID, SMSSEND_ACCOUNT, SMSSEND_PASSWORD, SMS_COUNTRIES
+from config import ADMIN_ID, SMS_COUNTRIES
 from utils.api import SMSSendAPI
 from utils.keyboards import (
     modules_kb,
@@ -99,8 +99,7 @@ async def msg_sms_text(message: types.Message, state: FSMContext, bot: Bot) -> N
 
     status_msg = await message.answer("⏳ Отправка SMS…")
     try:
-        api = SMSSendAPI(SMSSEND_ACCOUNT, SMSSEND_PASSWORD)
-        result = await api.send_sms(data["phone"], data["sender"], text)
+        result = await SMSSendAPI.send_sms(data["phone"], data["sender"], text)
         await status_msg.edit_text(
             f"✅ SMS отправлено!\n\n"
             f"📞 Номер: <code>{data['phone']}</code>\n"

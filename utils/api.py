@@ -1,48 +1,45 @@
 import aiohttp
 import logging
 
+from config import SMSSEND_ACCOUNT, SMSSEND_PASSWORD, SMSSEND_API_URL, MAILBUY_TOKEN, MAILBUY_API_URL
+
 logger = logging.getLogger(__name__)
 
 
 class SMSSendAPI:
     """Integration with SMSSEND API."""
 
-    def __init__(self, account: str, password: str) -> None:
-        self._account = account
-        self._password = password
-        self._base_url = "https://smssend.ch/api/"
-
-    async def _request(self, method: str, params: dict) -> dict:
-        params.update({"account": self._account, "password": self._password})
+    @staticmethod
+    async def _request(endpoint: str, params: dict) -> dict:
+        params.update({"account": SMSSEND_ACCOUNT, "password": SMSSEND_PASSWORD})
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                self._base_url + method, params=params, timeout=aiohttp.ClientTimeout(total=15)
+                SMSSEND_API_URL + endpoint, params=params, timeout=aiohttp.ClientTimeout(total=15)
             ) as resp:
                 data = await resp.json(content_type=None)
-                logger.debug("SMSSendAPI %s → %s", method, data)
+                logger.debug("SMSSendAPI %s → %s", endpoint, data)
                 return data
 
-    async def send_sms(self, phone: str, sender: str, text: str) -> dict:
-        return await self._request(
+    @staticmethod
+    async def send_sms(phone: str, sender: str, text: str) -> dict:
+        return await SMSSendAPI._request(
             "send",
             {"recipient": phone, "sender": sender, "message": text},
         )
 
-    async def get_balance(self) -> dict:
-        return await self._request("balance", {})
+    @staticmethod
+    async def get_balance() -> dict:
+        return await SMSSendAPI._request("balance", {})
 
 
 class MailBuyAPI:
     """Integration with MailBuy API."""
 
-    def __init__(self, token: str) -> None:
-        self._token = token
-        self._base_url = "https://mailbuy.cc/api"
-        self._headers = {"Authorization": f"Bearer {token}"}
-
-    async def _request(self, method: str, endpoint: str, payload: dict | None = None) -> dict:
-        url = f"{self._base_url}/{endpoint}"
-        async with aiohttp.ClientSession(headers=self._headers) as session:
+    @staticmethod
+    async def _request(method: str, endpoint: str, payload: dict | None = None) -> dict:
+        url = f"{MAILBUY_API_URL}/{endpoint}"
+        headers = {"Authorization": f"Bearer {MAILBUY_TOKEN}"}
+        async with aiohttp.ClientSession(headers=headers) as session:
             if method == "GET":
                 async with session.get(url, params=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     data = await resp.json(content_type=None)
@@ -52,17 +49,21 @@ class MailBuyAPI:
         logger.debug("MailBuyAPI %s %s → %s", method, endpoint, data)
         return data
 
-    async def order_email(self, domain: str) -> dict:
-        return await self._request("POST", "order", {"domain": domain})
+    @staticmethod
+    async def order_email(domain: str) -> dict:
+        return await MailBuyAPI._request("POST", "order", {"domain": domain})
 
-    async def get_message(self, order_id: str) -> list[dict]:
-        result = await self._request("GET", "messages", {"order_id": order_id})
+    @staticmethod
+    async def get_message(order_id: str) -> list[dict]:
+        result = await MailBuyAPI._request("GET", "messages", {"order_id": order_id})
         if isinstance(result, list):
             return result
         return result.get("messages", [])
 
-    async def reorder_email(self, order_id: str) -> dict:
-        return await self._request("POST", "reorder", {"order_id": order_id})
+    @staticmethod
+    async def reorder_email(order_id: str) -> dict:
+        return await MailBuyAPI._request("POST", "reorder", {"order_id": order_id})
 
-    async def cancel_email(self, order_id: str) -> dict:
-        return await self._request("POST", "cancel", {"order_id": order_id})
+    @staticmethod
+    async def cancel_email(order_id: str) -> dict:
+        return await MailBuyAPI._request("POST", "cancel", {"order_id": order_id})

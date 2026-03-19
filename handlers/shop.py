@@ -4,7 +4,7 @@ from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 
 import database as db
-from config import ADMIN_ID, MAILBUY_TOKEN, MAILBUY_MARKUP
+from config import ADMIN_ID, MAILBUY_MARKUP
 from utils.api import MailBuyAPI
 from utils.keyboards import (
     shop_kb,
@@ -44,8 +44,7 @@ async def msg_mail_domain(message: types.Message, state: FSMContext) -> None:
     status_msg = await message.answer("⏳ Ищем доступные ящики…")
 
     try:
-        api = MailBuyAPI(MAILBUY_TOKEN)
-        result = await api.order_email(domain)
+        result = await MailBuyAPI.order_email(domain)
 
         if not result or "email" not in result:
             await status_msg.edit_text(
@@ -159,8 +158,7 @@ async def cb_mail_refresh(callback: types.CallbackQuery, state: FSMContext) -> N
         return
 
     try:
-        api = MailBuyAPI(MAILBUY_TOKEN)
-        messages = await api.get_message(order["order_id"])
+        messages = await MailBuyAPI.get_message(order["order_id"])
         if not messages:
             await callback.answer("📭 Писем нет.", show_alert=True)
             return
