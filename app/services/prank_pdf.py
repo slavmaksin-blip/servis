@@ -1,7 +1,8 @@
 """
 Generates a fake Swiss-bank debit-notification PDF (Belastungsanzeige).
 Clearly marked as FAKE / ATTRAPPE — not a real bank document.
-Uses DejaVu Unicode TTF fonts so German umlauts render correctly.
+Uses DejaVu Unicode TTF fonts so all characters (umlauts, dashes, etc.)
+render correctly on any platform (fonts are bundled with the project).
 """
 from __future__ import annotations
 
@@ -10,22 +11,31 @@ import random
 import string
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
+from pathlib import Path
 
 from fpdf import FPDF
 
 # ---------------------------------------------------------------------------
-# Font paths — DejaVu (Unicode, available on Debian/Ubuntu systems)
+# Font paths — bundled DejaVu first, then common system locations
 # ---------------------------------------------------------------------------
 
+_ASSETS = Path(__file__).parent.parent / "assets" / "fonts"
+
 _FONT_CANDIDATES = [
+    str(_ASSETS / "DejaVuSans.ttf"),
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+    r"C:\Windows\Fonts\arial.ttf",
+    r"C:\Windows\Fonts\calibri.ttf",
 ]
 _FONT_BOLD_CANDIDATES = [
+    str(_ASSETS / "DejaVuSans-Bold.ttf"),
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+    r"C:\Windows\Fonts\arialbd.ttf",
+    r"C:\Windows\Fonts\calibrib.ttf",
 ]
 
 
@@ -47,11 +57,23 @@ except Exception:
     _CH_TZ = None
 
 
+def _last_sunday(year: int, month: int) -> int:
+    """Return the day-of-month of the last Sunday in the given month."""
+    import calendar
+    last_day = calendar.monthrange(year, month)[1]
+    # weekday(): Monday=0 … Sunday=6
+    offset = datetime(year, month, last_day).weekday()
+    return last_day - ((offset + 1) % 7)
+
+
 def _now_ch() -> datetime:
     now = datetime.now(timezone.utc)
     if _CH_TZ is not None:
         return now.astimezone(_CH_TZ)  # type: ignore[arg-type]
-    offset_h = 2 if 3 <= now.month <= 10 else 1
+    # Accurate DST: last Sunday in March → last Sunday in October
+    dst_start = datetime(now.year, 3, _last_sunday(now.year, 3), 1, 0, 0, tzinfo=timezone.utc)
+    dst_end   = datetime(now.year, 10, _last_sunday(now.year, 10), 1, 0, 0, tzinfo=timezone.utc)
+    offset_h = 2 if dst_start <= now < dst_end else 1
     return now.astimezone(timezone(timedelta(hours=offset_h)))
 
 
@@ -99,8 +121,6 @@ def _random_balance(amount: float) -> float:
 # ---------------------------------------------------------------------------
 
 class _BankPDF(FPDF):
-    _use_unicode: bool
-
     def __init__(self) -> None:
         super().__init__(orientation="P", unit="mm", format="A4")
         self.set_auto_page_break(auto=False)
@@ -109,19 +129,19 @@ class _BankPDF(FPDF):
         font_reg = _find_font(_FONT_CANDIDATES)
         font_bold = _find_font(_FONT_BOLD_CANDIDATES)
 
-        if font_reg and font_bold:
-            self.add_font("Sans", style="", fname=font_reg)
-            self.add_font("Sans", style="B", fname=font_bold)
-            self._use_unicode = True
-        else:
-            self._use_unicode = False
+        if not font_reg or not font_bold:
+            raise RuntimeError(
+                "No Unicode TTF font found. "
+                "Expected bundled font at app/assets/fonts/DejaVuSans*.ttf "
+                "or a system DejaVu/Liberation/Arial font."
+            )
+
+        self.add_font("Sans", style="", fname=font_reg)
+        self.add_font("Sans", style="B", fname=font_bold)
 
     def _sf(self, bold: bool = False, size: int = 9) -> None:
-        """Set font — Sans (Unicode) when available, Helvetica otherwise."""
-        if self._use_unicode:
-            self.set_font("Sans", style="B" if bold else "", size=size)
-        else:
-            self.set_font("Helvetica", style="B" if bold else "", size=size)
+        """Set font."""
+        self.set_font("Sans", style="B" if bold else "", size=size)
 
     def _hline(self, lw: float = 0.3, color: tuple = (180, 180, 180)) -> None:
         self.set_line_width(lw)

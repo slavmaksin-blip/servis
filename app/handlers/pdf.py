@@ -22,10 +22,10 @@ async def pdf_entry(call: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(country=country)
     await state.set_state(PdfFlow.account_holder)
     await call.message.edit_text(
-        "📄 <b>Fake-PDF: Kontoauszug / Belastungsanzeige</b>\n\n"
-        "Ich benötige einige Angaben für das Dokument.\n\n"
-        "<b>Schritt 1/4 — Kontoinhaber:</b>\n"
-        "Gib den Namen des Kontoinhabers ein (z. B. <i>Max Mustermann</i>):",
+        "📄 <b>Фейковая PDF-выписка из банка</b>\n\n"
+        "Мне нужно несколько данных для документа.\n\n"
+        "<b>Шаг 1/4 — Владелец счёта:</b>\n"
+        "Введи имя и фамилию владельца (например: <i>Max Mustermann</i>):",
         parse_mode="HTML",
     )
     await call.answer()
@@ -38,7 +38,7 @@ async def pdf_entry(call: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(F.data == "pdf:back:countries")
 async def pdf_back_countries(call: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await call.message.edit_text("Wähle ein Land:", reply_markup=countries_kb())
+    await call.message.edit_text("Выбери страну:", reply_markup=countries_kb())
     await call.answer()
 
 
@@ -50,17 +50,17 @@ async def pdf_back_countries(call: CallbackQuery, state: FSMContext) -> None:
 async def pdf_input_holder(message: Message, state: FSMContext) -> None:
     name = (message.text or "").strip()
     if not name or len(name) < 2:
-        await message.answer("❌ Bitte gib einen gültigen Namen ein:")
+        await message.answer("❌ Введи корректное имя (минимум 2 символа):")
         return
     if len(name) > 60:
-        await message.answer("❌ Name zu lang (max. 60 Zeichen). Bitte kürzen:")
+        await message.answer("❌ Имя слишком длинное (максимум 60 символов). Сократи:")
         return
     await state.update_data(account_holder=name)
     await state.set_state(PdfFlow.iban_suffix)
     await message.answer(
-        "<b>Schritt 2/4 — Letzte 4 Ziffern der IBAN:</b>\n"
-        "Gib die letzten 4 Ziffern deiner IBAN ein (z. B. <i>7809</i>).\n"
-        "Die IBAN wird im Dokument als <code>CH** **** **** **** **XXXX</code> angezeigt.",
+        "<b>Шаг 2/4 — Последние 4 цифры IBAN:</b>\n"
+        "Введи последние 4 цифры IBAN (например: <i>7809</i>).\n"
+        "В документе IBAN будет отображён как <code>CH** **** **** **** **XXXX</code>.",
         parse_mode="HTML",
     )
 
@@ -75,15 +75,15 @@ async def pdf_input_iban(message: Message, state: FSMContext) -> None:
     digits = raw.replace(" ", "")
     if not digits.isdigit() or len(digits) < 1:
         await message.answer(
-            "❌ Bitte gib 1–4 Ziffern ein (die letzten Stellen deiner IBAN):"
+            "❌ Введи 1–4 цифры (последние символы IBAN):"
         )
         return
     await state.update_data(iban_suffix=digits[-4:])
     await state.set_state(PdfFlow.service_name)
     await message.answer(
-        "<b>Schritt 3/4 — Zahlungsempfänger:</b>\n"
-        "Wie heißt der Dienst oder das Unternehmen, an das die Zahlung ging?\n"
-        "(z. B. <i>Netflix</i>, <i>Spotify</i>, <i>Amazon</i>)",
+        "<b>Шаг 3/4 — Получатель платежа:</b>\n"
+        "Как называется сервис или компания, которой ушёл платёж?\n"
+        "(например: <i>Netflix</i>, <i>Spotify</i>, <i>Amazon</i>)",
         parse_mode="HTML",
     )
 
@@ -96,16 +96,16 @@ async def pdf_input_iban(message: Message, state: FSMContext) -> None:
 async def pdf_input_service(message: Message, state: FSMContext) -> None:
     name = (message.text or "").strip()
     if not name:
-        await message.answer("❌ Der Name darf nicht leer sein. Bitte eingeben:")
+        await message.answer("❌ Название не должно быть пустым. Введи ещё раз:")
         return
     if len(name) > 50:
-        await message.answer("❌ Name zu lang (max. 50 Zeichen):")
+        await message.answer("❌ Название слишком длинное (максимум 50 символов):")
         return
     await state.update_data(service_name=name)
     await state.set_state(PdfFlow.amount)
     await message.answer(
-        "<b>Schritt 4/4 — Betrag in CHF:</b>\n"
-        "Gib den Betrag ein, z. B. <b>49.90</b>",
+        "<b>Шаг 4/4 — Сумма в CHF:</b>\n"
+        "Введи сумму, например: <b>49.90</b>",
         parse_mode="HTML",
     )
 
@@ -125,7 +125,7 @@ async def pdf_input_amount(message: Message, state: FSMContext) -> None:
             raise ValueError("too large")
     except ValueError:
         await message.answer(
-            "❌ Ungültiger Betrag. Bitte eine positive Zahl eingeben, z. B. <b>49.90</b>",
+            "❌ Неверная сумма. Введи положительное число, например: <b>49.90</b>",
             parse_mode="HTML",
         )
         return
@@ -135,7 +135,7 @@ async def pdf_input_amount(message: Message, state: FSMContext) -> None:
     iban_suffix    = data.get("iban_suffix", "0000")
     service_name   = data.get("service_name", "Service")
 
-    await message.answer("⏳ Generiere PDF, bitte warten…")
+    await message.answer("⏳ Генерирую PDF, подожди секунду...")
 
     pdf_bytes = generate_prank_bank_pdf(
         account_holder=account_holder,
@@ -145,9 +145,9 @@ async def pdf_input_amount(message: Message, state: FSMContext) -> None:
     )
 
     caption = (
-        "📄 <b>Fake-Kontoauszug (ATTRAPPE)</b>\n"
-        "Das Dokument enthält einen deutlichen Hinweis: «ATTRAPPE / FAKE».\n"
-        "Es handelt sich um <b>kein echtes Bankdokument</b>."
+        "📄 <b>Фейковая банковская выписка (ATTRAPPE)</b>\n"
+        "Документ содержит явную пометку «ATTRAPPE / FAKE».\n"
+        "Это <b>не настоящий банковский документ</b>."
     )
     filename = f"kontoauszug_{service_name[:20].replace(' ', '_')}.pdf"
     await message.answer_document(
