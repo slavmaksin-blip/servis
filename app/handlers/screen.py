@@ -8,6 +8,7 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from app.keyboards import countries_kb, main_menu_kb, platforms_kb
 from app.services.prank_image import generate_prank_bank_screen
+from app.services.prank_full_tranz import generate_prank_full_tranz_screen
 from app.states import ScreenFlow
 
 router = Router()
@@ -104,23 +105,39 @@ async def input_amount(message: Message, state: FSMContext) -> None:
 
     data = await state.get_data()
     service_name = data.get("service_name", "Service")
-
-    await message.answer("⏳ Генерирую скрин, подожди секунду...")
+    platform     = data.get("platform", "bank")
 
     now = datetime.now(timezone.utc)
-    png_bytes = generate_prank_bank_screen(
-        service_name=service_name,
-        amount_chf=amount,
-        now=now,
-    )
 
-    caption = (
-        "🃏 <b>Шуточный скриншот банка</b>\n"
-        "На изображении виден водяной знак «SCHERZ / FAKE».\n"
-        "Не является настоящим банковским документом."
-    )
+    if platform == "full_tranz":
+        await message.answer("⏳ Генерирую детальный скрин, подожди секунду...")
+        png_bytes = generate_prank_full_tranz_screen(
+            service_name=service_name,
+            amount_chf=amount,
+            now=now,
+        )
+        caption = (
+            "📊 <b>Детальный скриншот транзакции (FAKE)</b>\n"
+            "На изображении нанесена пометка «FAKE».\n"
+            "Не является настоящим банковским документом."
+        )
+        filename = "full_tranz.png"
+    else:
+        await message.answer("⏳ Генерирую скрин, подожди секунду...")
+        png_bytes = generate_prank_bank_screen(
+            service_name=service_name,
+            amount_chf=amount,
+            now=now,
+        )
+        caption = (
+            "🃏 <b>Шуточный скриншот банка</b>\n"
+            "На изображении виден водяной знак «SCHERZ / FAKE».\n"
+            "Не является настоящим банковским документом."
+        )
+        filename = "prank_screen.png"
+
     await message.answer_photo(
-        photo=BufferedInputFile(png_bytes, filename="prank_screen.png"),
+        photo=BufferedInputFile(png_bytes, filename=filename),
         caption=caption,
         parse_mode="HTML",
         reply_markup=main_menu_kb(),

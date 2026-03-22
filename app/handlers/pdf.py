@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
@@ -149,7 +151,8 @@ async def pdf_input_amount(message: Message, state: FSMContext) -> None:
         "Документ содержит явную пометку «ATTRAPPE / FAKE».\n"
         "Это <b>не настоящий банковский документ</b>."
     )
-    filename = f"kontoauszug_{service_name[:20].replace(' ', '_')}.pdf"
+    safe_name = re.sub(r"[^\w\-]", "_", service_name[:20])
+    filename = f"kontoauszug_{safe_name}.pdf"
     await message.answer_document(
         document=BufferedInputFile(pdf_bytes, filename=filename),
         caption=caption,

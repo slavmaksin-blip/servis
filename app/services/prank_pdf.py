@@ -303,16 +303,9 @@ def generate_prank_bank_pdf(
     )
 
     # -----------------------------------------------------------------------
-    # FAKE / ATTRAPPE prominent banner
+    # FAKE / ATTRAPPE notice (plain text, no box or fill)
     # -----------------------------------------------------------------------
     pdf.ln(6)
-    pdf.set_line_width(1.0)
-    pdf.set_draw_color(200, 0, 0)
-    pdf.set_fill_color(255, 235, 235)
-    banner_y = pdf.get_y()
-    pdf.rect(pdf.l_margin, banner_y, page_w, 18, style="FD")
-    pdf.set_y(banner_y + 2)
-
     pdf._sf(bold=True, size=12)
     pdf.set_text_color(200, 0, 0)
     pdf.cell(page_w, 7, "ATTRAPPE / FAKE – KEIN ECHTES BANKDOKUMENT",

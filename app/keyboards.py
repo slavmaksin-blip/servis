@@ -22,6 +22,7 @@ def platforms_kb(country_code: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🏦 Скриншот банка", callback_data=f"screen:platform:{country_code}:bank")],
+            [InlineKeyboardButton(text="📊 Screen Full Tranz", callback_data=f"screen:platform:{country_code}:full_tranz")],
             [InlineKeyboardButton(text="📄 PDF выписка", callback_data=f"pdf:start:{country_code}")],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="screen:back:countries")],
         ]
