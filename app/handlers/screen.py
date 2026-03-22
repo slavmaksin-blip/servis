@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aiogram import Router, F
 from aiogram.fsm.context import FSMContext
@@ -107,7 +107,7 @@ async def input_amount(message: Message, state: FSMContext) -> None:
 
     await message.answer("⏳ Генерирую скрин, подожди секунду...")
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     png_bytes = generate_prank_bank_screen(
         service_name=service_name,
         amount_chf=amount,
