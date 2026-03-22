@@ -6,6 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from app.config import load_config
+from app.handlers.pdf import router as pdf_router
 from app.handlers.screen import router as screen_router
 from app.handlers.start import router as start_router
 
@@ -25,6 +26,7 @@ async def main() -> None:
 
     dp.include_router(start_router)
     dp.include_router(screen_router)
+    dp.include_router(pdf_router)
 
     logging.info("Bot started. Press Ctrl+C to stop.")
     await dp.start_polling(bot)

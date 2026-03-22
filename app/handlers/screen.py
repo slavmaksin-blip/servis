@@ -115,9 +115,9 @@ async def input_amount(message: Message, state: FSMContext) -> None:
     )
 
     caption = (
-        "🃏 <b>Шуточный скрин</b>\n"
-        "На изображении видимый водяной знак «РОЗЫГРЫШ / FAKE».\n"
-        "Не является настоящим банковским документом."
+        "🃏 <b>Scherzhafte Bildschirmaufnahme</b>\n"
+        "Das Bild enthält einen sichtbaren Wasserzeichen-Hinweis «SCHERZ / FAKE».\n"
+        "Kein echtes Bankdokument."
     )
     await message.answer_photo(
         photo=BufferedInputFile(png_bytes, filename="prank_screen.png"),

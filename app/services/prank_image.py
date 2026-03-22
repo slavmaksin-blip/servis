@@ -265,12 +265,12 @@ def _apply_watermark(
     rw: int, rh: int,
     f_big, f_small, S: int,
 ) -> None:
-    """Overlay semi-transparent РОЗЫГРЫШ / FAKE watermark."""
+    """Overlay semi-transparent SCHERZ / FAKE watermark (no solid banner)."""
     overlay = Image.new("RGBA", (rw, rh), (0, 0, 0, 0))
     od = ImageDraw.Draw(overlay)
 
-    wm1 = "РОЗЫГРЫШ"
-    wm2 = "FAKE / НЕ НАСТОЯЩИЙ ДОКУМЕНТ"
+    wm1 = "SCHERZ"
+    wm2 = "FAKE / KEIN ECHTES DOKUMENT"
 
     step = 110 * S
     for sy in range(-step, rh + step, step):
@@ -280,16 +280,13 @@ def _apply_watermark(
         od.text((rw // 2 - w2 // 2, sy + 32 * S), wm2,
                 fill=(200, 0, 0, 55), font=f_small)
 
-    # Central solid banner
-    bt = rh // 2 - 28 * S
-    bb_ = rh // 2 + 28 * S
-    od.rectangle((0, bt, rw, bb_), fill=(220, 0, 0, 130))
-    label = "⚠  РОЗЫГРЫШ / FAKE  ⚠"
+    # Centered text label — no solid background stripe
+    label = "⚠  SCHERZ / FAKE  ⚠"
     lw = _tw(od, label, f_big)
     lbb = _tbb(od, label, f_big)
     lh = lbb[3] - lbb[1]
     od.text((rw // 2 - lw // 2, rh // 2 - lh // 2 - lbb[1]),
-            label, fill=(255, 255, 255, 255), font=f_big)
+            label, fill=(220, 0, 0, 200), font=f_big)
 
     img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
 
@@ -306,7 +303,7 @@ def generate_prank_bank_screen(
     """
     Generate a light iOS-style transaction history image.
     Time shown is Swiss local time (Europe/Zurich).
-    Contains a visible 'РОЗЫГРЫШ / FAKE' watermark.
+    Contains a visible 'SCHERZ / FAKE' watermark.
     Does NOT copy any real bank interface 1-to-1.
     """
     if now is None:
@@ -368,8 +365,8 @@ def generate_prank_bank_screen(
     # -----------------------------------------------------------------------
     nav_top = SB_H
     nav_cy  = nav_top + NAV_H // 2
-    _draw_cc(d, RW // 2, nav_cy, "Транзакции", f_nav, BLACK)
-    _draw_vc(d, 16 * S, nav_cy, "‹  Назад", f_back, BLUE)
+    _draw_cc(d, RW // 2, nav_cy, "Transaktionen", f_nav, BLACK)
+    _draw_vc(d, 16 * S, nav_cy, "‹  Zurück", f_back, BLUE)
 
     sep_y = nav_top + NAV_H
     d.line((0, sep_y, RW, sep_y), fill=SEP, width=max(1, S))
