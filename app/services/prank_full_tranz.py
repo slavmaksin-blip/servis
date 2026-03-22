@@ -22,8 +22,6 @@ from app.services.prank_image import (
     _draw_vc,
     _draw_status_bar,
     _to_swiss,
-    _tw,
-    _tbb,
 )
 
 # ---------------------------------------------------------------------------
@@ -132,8 +130,6 @@ def generate_prank_full_tranz_screen(
     f_row_lbl = _load_font(14 * S)
     f_row_val = _load_bold(13 * S)
     f_sect    = _load_bold(11 * S)
-    f_fake_lg = _load_bold(24 * S)
-    f_fake_sm = _load_bold(13 * S)
 
     M      = 16 * S
     SB_H   = 44 * S
@@ -152,7 +148,7 @@ def generate_prank_full_tranz_screen(
     nav_top = SB_H
     nav_cy  = nav_top + NAV_H // 2
     _draw_cc(d, RW // 2, nav_cy, "Transaktionsdetails", f_nav, BLACK)
-    _draw_vc(d, 16 * S, nav_cy, "‹  Transaktionen", f_back, BLUE)
+    _draw_vc(d, 16 * S, nav_cy, "‹ Назад", f_back, BLUE)
     d.line((0, nav_top + NAV_H, RW, nav_top + NAV_H), fill=SEP, width=max(1, S))
 
     y = nav_top + NAV_H + 16 * S
@@ -242,37 +238,7 @@ def generate_prank_full_tranz_screen(
                        fill=SEP, width=max(1, S // 2))
 
     # -----------------------------------------------------------------------
-    # 6. FAKE watermark — red text only, no boxes
-    # -----------------------------------------------------------------------
-    overlay = Image.new("RGBA", (RW, RH), (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-
-    # Tiled diagonal label (semi-transparent)
-    wm_text = "FAKE / NICHT ECHT"
-    step = 120 * S
-    for sy in range(-step, RH + step, step):
-        ww = _tw(od, wm_text, f_fake_lg)
-        od.text((RW // 2 - ww // 2, sy), wm_text, fill=(220, 0, 0, 65), font=f_fake_lg)
-        ww2 = _tw(od, wm_text, f_fake_sm)
-        od.text((RW // 2 - ww2 // 2, sy + 36 * S), wm_text,
-                fill=(200, 0, 0, 45), font=f_fake_sm)
-
-    # One bold centred "FAKE" label (more visible)
-    center_text = "FAKE"
-    cw = _tw(od, center_text, f_fake_lg)
-    bb = _tbb(od, center_text, f_fake_lg)
-    lh = bb[3] - bb[1]
-    od.text(
-        (RW // 2 - cw // 2, RH // 2 - lh // 2 - bb[1]),
-        center_text,
-        fill=(220, 0, 0, 190),
-        font=f_fake_lg,
-    )
-
-    img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
-
-    # -----------------------------------------------------------------------
-    # 7. Rounded corners (phone-screenshot look)
+    # 6. Rounded corners (phone-screenshot look)
     # -----------------------------------------------------------------------
     mask = Image.new("L", (RW, RH), 0)
     ImageDraw.Draw(mask).rounded_rectangle(

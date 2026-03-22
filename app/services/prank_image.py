@@ -257,41 +257,6 @@ def _draw_status_bar(
 
 
 # ---------------------------------------------------------------------------
-# Watermark
-# ---------------------------------------------------------------------------
-
-def _apply_watermark(
-    img: Image.Image,
-    rw: int, rh: int,
-    f_big, f_small, S: int,
-) -> None:
-    """Overlay semi-transparent SCHERZ / FAKE watermark (no solid banner)."""
-    overlay = Image.new("RGBA", (rw, rh), (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-
-    wm1 = "SCHERZ"
-    wm2 = "FAKE / KEIN ECHTES DOKUMENT"
-
-    step = 110 * S
-    for sy in range(-step, rh + step, step):
-        w1 = _tw(od, wm1, f_big)
-        od.text((rw // 2 - w1 // 2, sy), wm1, fill=(220, 0, 0, 75), font=f_big)
-        w2 = _tw(od, wm2, f_small)
-        od.text((rw // 2 - w2 // 2, sy + 32 * S), wm2,
-                fill=(200, 0, 0, 55), font=f_small)
-
-    # Centered text label — no solid background stripe
-    label = "⚠  SCHERZ / FAKE  ⚠"
-    lw = _tw(od, label, f_big)
-    lbb = _tbb(od, label, f_big)
-    lh = lbb[3] - lbb[1]
-    od.text((rw // 2 - lw // 2, rh // 2 - lh // 2 - lbb[1]),
-            label, fill=(220, 0, 0, 200), font=f_big)
-
-    img.paste(Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB"))
-
-
-# ---------------------------------------------------------------------------
 # Main generator
 # ---------------------------------------------------------------------------
 
@@ -339,8 +304,6 @@ def generate_prank_bank_screen(
     f_tx_name = _load_bold(15 * S)
     f_tx_sub  = _load_font(13 * S)
     f_tx_amt  = _load_bold(15 * S)
-    f_wm_big  = _load_bold(26 * S)
-    f_wm_sm   = _load_bold(12 * S)
 
     # -----------------------------------------------------------------------
     # Layout constants (in scaled pixels)
@@ -478,12 +441,7 @@ def generate_prank_bank_screen(
                    fill=SEP, width=max(1, S // 2))
 
     # -----------------------------------------------------------------------
-    # 8. Watermark
-    # -----------------------------------------------------------------------
-    _apply_watermark(img, RW, RH, f_wm_big, f_wm_sm, S)
-
-    # -----------------------------------------------------------------------
-    # 9. Rounded corners (phone-screenshot look)
+    # 8. Rounded corners (phone-screenshot look)
     # -----------------------------------------------------------------------
     mask = Image.new("L", (RW, RH), 0)
     ImageDraw.Draw(mask).rounded_rectangle(

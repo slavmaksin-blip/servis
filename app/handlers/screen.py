@@ -117,8 +117,8 @@ async def input_amount(message: Message, state: FSMContext) -> None:
             now=now,
         )
         caption = (
-            "📊 <b>Детальный скриншот транзакции (FAKE)</b>\n"
-            "На изображении нанесена пометка «FAKE».\n"
+            "📊 <b>Детальный скриншот транзакции</b>\n"
+            "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
             "Не является настоящим банковским документом."
         )
         filename = "full_tranz.png"
@@ -131,7 +131,7 @@ async def input_amount(message: Message, state: FSMContext) -> None:
         )
         caption = (
             "🃏 <b>Шуточный скриншот банка</b>\n"
-            "На изображении виден водяной знак «SCHERZ / FAKE».\n"
+            "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
             "Не является настоящим банковским документом."
         )
         filename = "prank_screen.png"
