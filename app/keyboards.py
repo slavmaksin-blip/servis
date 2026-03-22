@@ -13,6 +13,7 @@ def countries_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🇨🇭 Швейцария", callback_data="screen:country:ch")],
+            [InlineKeyboardButton(text="🇩🇪 Германия",  callback_data="screen:country:de")],
             [InlineKeyboardButton(text="◀️ Назад", callback_data="menu:back")],
         ]
     )

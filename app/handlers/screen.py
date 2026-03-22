@@ -9,6 +9,8 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from app.keyboards import countries_kb, main_menu_kb, platforms_kb
 from app.services.prank_image import generate_prank_bank_screen
 from app.services.prank_full_tranz import generate_prank_full_tranz_screen
+from app.services.de_prank_image import generate_de_prank_bank_screen
+from app.services.de_prank_full_tranz import generate_de_prank_full_tranz_screen
 from app.states import ScreenFlow
 
 router = Router()
@@ -83,7 +85,12 @@ async def input_service(message: Message, state: FSMContext) -> None:
         return
     await state.update_data(service_name=name)
     await state.set_state(ScreenFlow.amount)
-    await message.answer("Введи сумму списания (CHF), например: <b>12.50</b>", parse_mode="HTML")
+    data = await state.get_data()
+    currency = "EUR" if data.get("country") == "de" else "CHF"
+    await message.answer(
+        f"Введи сумму списания ({currency}), например: <b>12.50</b>",
+        parse_mode="HTML",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -106,35 +113,64 @@ async def input_amount(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     service_name = data.get("service_name", "Service")
     platform     = data.get("platform", "bank")
+    country      = data.get("country", "ch")
 
     now = datetime.now(timezone.utc)
 
-    if platform == "full_tranz":
-        await message.answer("⏳ Генерирую детальный скрин, подожди секунду...")
-        png_bytes = generate_prank_full_tranz_screen(
-            service_name=service_name,
-            amount_chf=amount,
-            now=now,
-        )
-        caption = (
-            "📊 <b>Детальный скриншот транзакции</b>\n"
-            "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
-            "Не является настоящим банковским документом."
-        )
-        filename = "full_tranz.png"
+    if country == "de":
+        if platform == "full_tranz":
+            await message.answer("⏳ Генерирую детальный скрин, подожди секунду...")
+            png_bytes = generate_de_prank_full_tranz_screen(
+                service_name=service_name,
+                amount_eur=amount,
+                now=now,
+            )
+            caption = (
+                "📊 <b>Детальный скриншот транзакции</b>\n"
+                "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
+                "Не является настоящим банковским документом."
+            )
+            filename = "de_full_tranz.png"
+        else:
+            await message.answer("⏳ Генерирую скрин, подожди секунду...")
+            png_bytes = generate_de_prank_bank_screen(
+                service_name=service_name,
+                amount_eur=amount,
+                now=now,
+            )
+            caption = (
+                "🃏 <b>Шуточный скриншот банка</b>\n"
+                "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
+                "Не является настоящим банковским документом."
+            )
+            filename = "de_prank_screen.png"
     else:
-        await message.answer("⏳ Генерирую скрин, подожди секунду...")
-        png_bytes = generate_prank_bank_screen(
-            service_name=service_name,
-            amount_chf=amount,
-            now=now,
-        )
-        caption = (
-            "🃏 <b>Шуточный скриншот банка</b>\n"
-            "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
-            "Не является настоящим банковским документом."
-        )
-        filename = "prank_screen.png"
+        if platform == "full_tranz":
+            await message.answer("⏳ Генерирую детальный скрин, подожди секунду...")
+            png_bytes = generate_prank_full_tranz_screen(
+                service_name=service_name,
+                amount_chf=amount,
+                now=now,
+            )
+            caption = (
+                "📊 <b>Детальный скриншот транзакции</b>\n"
+                "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
+                "Не является настоящим банковским документом."
+            )
+            filename = "full_tranz.png"
+        else:
+            await message.answer("⏳ Генерирую скрин, подожди секунду...")
+            png_bytes = generate_prank_bank_screen(
+                service_name=service_name,
+                amount_chf=amount,
+                now=now,
+            )
+            caption = (
+                "🃏 <b>Шуточный скриншот банка</b>\n"
+                "⚠️ Это <b>фейковый</b> скриншот, созданный в развлекательных целях.\n"
+                "Не является настоящим банковским документом."
+            )
+            filename = "prank_screen.png"
 
     await message.answer_photo(
         photo=BufferedInputFile(png_bytes, filename=filename),
@@ -143,3 +179,4 @@ async def input_amount(message: Message, state: FSMContext) -> None:
         reply_markup=main_menu_kb(),
     )
     await state.clear()
+

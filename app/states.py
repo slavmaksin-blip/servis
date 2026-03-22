@@ -12,4 +12,4 @@ class PdfFlow(StatesGroup):
     account_holder = State()   # Name des Kontoinhabers
     iban_suffix = State()      # Letzte 4 Ziffern der IBAN
     service_name = State()     # Zahlungsempfänger
-    amount = State()           # Betrag in CHF
+    amount = State()           # Betrag in CHF oder EUR
