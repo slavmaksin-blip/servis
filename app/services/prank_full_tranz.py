@@ -128,7 +128,7 @@ def generate_prank_full_tranz_screen(
     f_status  = _load_bold(13 * S)
     f_dt      = _load_font(12 * S)
     f_row_lbl = _load_font(14 * S)
-    f_row_val = _load_bold(13 * S)
+    f_row_val = _load_bold(14 * S)
     f_sect    = _load_bold(11 * S)
 
     M      = 16 * S
@@ -148,7 +148,7 @@ def generate_prank_full_tranz_screen(
     nav_top = SB_H
     nav_cy  = nav_top + NAV_H // 2
     _draw_cc(d, RW // 2, nav_cy, "Transaktionsdetails", f_nav, BLACK)
-    _draw_vc(d, 16 * S, nav_cy, "‹ Назад", f_back, BLUE)
+    _draw_vc(d, 16 * S, nav_cy, "‹ Zurück", f_back, BLUE)
     d.line((0, nav_top + NAV_H, RW, nav_top + NAV_H), fill=SEP, width=max(1, S))
 
     y = nav_top + NAV_H + 16 * S
@@ -163,9 +163,9 @@ def generate_prank_full_tranz_screen(
     svc_label = service_name[:28]
     _draw_cc(d, RW // 2, y + 20 * S, svc_label, f_svc, GRAY)
 
-    # Amount (large, red, centered)
+    # Amount (large, black, centered)
     amt_str = f"CHF {amount_chf:,.2f}".replace(",", "\u2019")
-    _draw_cc(d, RW // 2, y + 52 * S, f"\u2212 {amt_str}", f_amount, RED)
+    _draw_cc(d, RW // 2, y + 52 * S, f"\u2212 {amt_str}", f_amount, BLACK)
 
     # Status (green, centered)
     _draw_cc(d, RW // 2, y + 78 * S, "\u2713  Abgeschlossen", f_status, GREEN)

@@ -147,9 +147,9 @@ async def pdf_input_amount(message: Message, state: FSMContext) -> None:
     )
 
     caption = (
-        "📄 <b>Фейковая банковская выписка (ATTRAPPE)</b>\n"
-        "Документ содержит явную пометку «ATTRAPPE / FAKE».\n"
-        "Это <b>не настоящий банковский документ</b>."
+        "📄 <b>Фейковая банковская выписка</b>\n"
+        "⚠️ Это <b>фейковый</b> документ, созданный в развлекательных целях.\n"
+        "Не является настоящим банковским документом."
     )
     safe_name = re.sub(r"[^\w\-]", "_", service_name[:20])
     filename = f"kontoauszug_{safe_name}.pdf"

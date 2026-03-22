@@ -303,23 +303,6 @@ def generate_prank_bank_pdf(
     )
 
     # -----------------------------------------------------------------------
-    # FAKE / ATTRAPPE notice (plain text, no box or fill)
-    # -----------------------------------------------------------------------
-    pdf.ln(6)
-    pdf._sf(bold=True, size=12)
-    pdf.set_text_color(200, 0, 0)
-    pdf.cell(page_w, 7, "ATTRAPPE / FAKE – KEIN ECHTES BANKDOKUMENT",
-             new_x="LMARGIN", new_y="NEXT", align="C")
-
-    pdf._sf(bold=False, size=8)
-    pdf.set_text_color(160, 0, 0)
-    pdf.cell(
-        page_w, 5,
-        "Dieses Dokument wurde zu Unterhaltungszwecken (Scherz) erstellt und ist nicht echt.",
-        new_x="LMARGIN", new_y="NEXT", align="C",
-    )
-
-    # -----------------------------------------------------------------------
     # Footer
     # -----------------------------------------------------------------------
     pdf.set_y(pdf.h - 20)
@@ -331,11 +314,6 @@ def generate_prank_bank_pdf(
              new_x="RIGHT", new_y="TOP")
     pdf.cell(page_w / 2, 4, f"Erstellt am: {date_str}",
              new_x="LMARGIN", new_y="NEXT", align="R")
-    pdf.cell(
-        page_w, 4,
-        "ATTRAPPE – Dieses Dokument hat keinen rechtlichen Wert.",
-        new_x="LMARGIN", new_y="NEXT", align="C",
-    )
 
     buf = BytesIO()
     pdf.output(buf)
