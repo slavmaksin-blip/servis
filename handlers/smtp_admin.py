@@ -1,8 +1,10 @@
 """Admin handler for the /smtp command.
 
-Allows bot administrators (listed in ADMIN_IDS env var) to change the active
-SMTP configuration at runtime without restarting the bot.  The new settings
-are written to ``smtp_override.json`` and take effect immediately.
+The /smtp command opens an admin panel where administrators can:
+  1. Change the active SMTP credentials.
+  2. Configure the sender name and subject prefix for each preset template.
+
+Changes are persisted to disk and take effect immediately without a restart.
 """
 import logging
 
@@ -13,14 +15,40 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from config import ADMIN_IDS
 import smtp_settings
+import template_settings
 from smtp_settings import SmtpConfig, apply as smtp_apply
-from utils.states import SmtpStates
+from template_settings import (
+    TemplateConfig,
+    TEMPLATE_IDS,
+    TEMPLATE_LABELS,
+    apply as tpl_apply,
+)
+from utils.states import SmtpStates, TemplateAdminStates
 
 log = logging.getLogger(__name__)
 router = Router()
 
 
+# ──────────────────────────────── access guard ───────────────────────────────
+
+def _is_admin(user_id: int) -> bool:
+    return bool(ADMIN_IDS) and user_id in ADMIN_IDS
+
+
 # ──────────────────────────────── keyboards ──────────────────────────────────
+
+def _admin_panel_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="⚙️ Изменить SMTP", callback_data="smtp_edit")],
+            [
+                InlineKeyboardButton(text="📝 Ricardo 2.0", callback_data="smtp_tpl_ricardo"),
+                InlineKeyboardButton(text="📝 PostFinance 2.0", callback_data="smtp_tpl_postfinance"),
+            ],
+            [InlineKeyboardButton(text="❌ Закрыть", callback_data="smtp_cancel")],
+        ]
+    )
+
 
 def _ssl_choice_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -45,6 +73,17 @@ def _confirm_kb() -> InlineKeyboardMarkup:
     )
 
 
+def _tpl_confirm_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Сохранить", callback_data="smtp_tpl_confirm"),
+                InlineKeyboardButton(text="❌ Отмена", callback_data="smtp_cancel"),
+            ]
+        ]
+    )
+
+
 def _cancel_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
@@ -55,7 +94,27 @@ def _cancel_kb() -> InlineKeyboardMarkup:
 
 # ──────────────────────────────── helpers ────────────────────────────────────
 
-def _summary(data: dict) -> str:
+def _admin_panel_text() -> str:
+    cfg = smtp_settings.current
+    mode = "SSL/TLS (порт 465)" if cfg.use_ssl else "STARTTLS (порт 587)"
+    lines = [
+        "⚙️ <b>Панель администратора</b>\n",
+        "<b>SMTP:</b>",
+        f"  🌐 Сервер: <code>{cfg.host}:{cfg.port}</code> ({mode})",
+        f"  👤 Пользователь: <code>{cfg.user}</code>",
+        "",
+        "<b>Настройки шаблонов:</b>",
+    ]
+    for tid in TEMPLATE_IDS:
+        tc = template_settings.current[tid]
+        label = TEMPLATE_LABELS[tid]
+        sname = f"<code>{tc.sender_name}</code>" if tc.sender_name else "<i>не задано</i>"
+        subj = f"<code>{tc.subject}#XXXX</code>" if tc.subject else "<i>не задано</i>"
+        lines.append(f"  <b>{label}</b>: {sname} / {subj}")
+    return "\n".join(lines)
+
+
+def _smtp_summary(data: dict) -> str:
     use_ssl = data.get("use_ssl", True)
     mode = "SSL/TLS (порт 465)" if use_ssl else "STARTTLS (порт 587)"
     return (
@@ -75,28 +134,37 @@ async def cmd_smtp(message: types.Message, state: FSMContext) -> None:
         log.warning(
             "ADMIN_IDS is not configured — /smtp command is disabled for all users"
         )
-        await message.answer("⛔ У вас нет доступа к этой команде.")
-        return
-    if message.from_user.id not in ADMIN_IDS:
+    if not _is_admin(message.from_user.id):
         await message.answer("⛔ У вас нет доступа к этой команде.")
         return
 
+    await state.clear()
+    await message.answer(
+        _admin_panel_text(),
+        parse_mode="HTML",
+        reply_markup=_admin_panel_kb(),
+    )
+
+
+# ──────────────────────────────── SMTP wizard ────────────────────────────────
+
+@router.callback_query(F.data == "smtp_edit")
+async def cb_smtp_edit(callback: types.CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет доступа.", show_alert=True)
+        return
     cfg = smtp_settings.current
     mode = "SSL/TLS (порт 465)" if cfg.use_ssl else "STARTTLS (порт 587)"
-    await message.answer(
-        f"⚙️ <b>Текущие настройки SMTP:</b>\n"
-        f"🌐 Сервер: <code>{cfg.host}</code>\n"
-        f"🔌 Порт: <code>{cfg.port}</code>\n"
-        f"🔒 Шифрование: {mode}\n"
-        f"👤 Пользователь: <code>{cfg.user}</code>\n\n"
+    await callback.message.edit_text(
+        f"⚙️ <b>Изменение SMTP</b>\n\n"
+        f"Текущий сервер: <code>{cfg.host}:{cfg.port}</code> ({mode})\n\n"
         "Введите новый <b>SMTP-сервер</b> (например: <code>smtp.mail.ch</code>):",
         parse_mode="HTML",
         reply_markup=_cancel_kb(),
     )
     await state.set_state(SmtpStates.host)
+    await callback.answer()
 
-
-# ──────────────────────────────── wizard steps ───────────────────────────────
 
 @router.message(SmtpStates.host)
 async def msg_smtp_host(message: types.Message, state: FSMContext) -> None:
@@ -174,7 +242,7 @@ async def msg_smtp_password(message: types.Message, state: FSMContext) -> None:
     data = await state.get_data()
     await state.set_state(SmtpStates.confirm)
     await message.answer(
-        f"📋 <b>Проверьте новые настройки SMTP:</b>\n\n{_summary(data)}\n\n"
+        f"📋 <b>Проверьте новые настройки SMTP:</b>\n\n{_smtp_summary(data)}\n\n"
         "Применить?",
         parse_mode="HTML",
         reply_markup=_confirm_kb(),
@@ -203,6 +271,89 @@ async def cb_smtp_confirm(callback: types.CallbackQuery, state: FSMContext) -> N
         f"🔒 Шифрование: {mode}\n"
         f"👤 Пользователь: <code>{new_cfg.user}</code>",
         parse_mode="HTML",
+        reply_markup=_admin_panel_kb(),
+    )
+    await callback.answer()
+
+
+# ──────────────────────────────── Template settings wizard ───────────────────
+
+@router.callback_query(F.data.in_({"smtp_tpl_ricardo", "smtp_tpl_postfinance"}))
+async def cb_smtp_tpl(callback: types.CallbackQuery, state: FSMContext) -> None:
+    if not _is_admin(callback.from_user.id):
+        await callback.answer("⛔ Нет доступа.", show_alert=True)
+        return
+    template_id = "ricardo" if callback.data == "smtp_tpl_ricardo" else "postfinance"
+    label = TEMPLATE_LABELS[template_id]
+    tc = template_settings.current[template_id]
+    await state.update_data(template_id=template_id)
+    await state.set_state(TemplateAdminStates.sender_name)
+    await callback.message.edit_text(
+        f"📝 <b>Настройки шаблона {label}</b>\n\n"
+        f"Текущий отправитель: <code>{tc.sender_name or '—'}</code>\n"
+        f"Текущая тема: <code>{(tc.subject + '#XXXX') if tc.subject else '—'}</code>\n\n"
+        "Введите новое <b>имя отправителя</b>:",
+        parse_mode="HTML",
+        reply_markup=_cancel_kb(),
+    )
+    await callback.answer()
+
+
+@router.message(TemplateAdminStates.sender_name)
+async def msg_tpl_sender_name(message: types.Message, state: FSMContext) -> None:
+    name = message.text.strip() if message.text else ""
+    if not name:
+        await message.answer("⚠️ Введите имя отправителя:", reply_markup=_cancel_kb())
+        return
+    await state.update_data(sender_name=name)
+    await state.set_state(TemplateAdminStates.subject)
+    await message.answer(
+        "Введите <b>тему сообщения</b>\n"
+        "<i>(суффикс #XXXX добавится автоматически для защиты от спама)</i>:",
+        parse_mode="HTML",
+        reply_markup=_cancel_kb(),
+    )
+
+
+@router.message(TemplateAdminStates.subject)
+async def msg_tpl_subject(message: types.Message, state: FSMContext) -> None:
+    subject = message.text.strip() if message.text else ""
+    if not subject:
+        await message.answer("⚠️ Введите тему:", reply_markup=_cancel_kb())
+        return
+    await state.update_data(subject=subject)
+    data = await state.get_data()
+    label = TEMPLATE_LABELS[data["template_id"]]
+    await state.set_state(TemplateAdminStates.confirm)
+    await message.answer(
+        f"📋 <b>Настройки шаблона {label}:</b>\n\n"
+        f"👤 Отправитель: <code>{data['sender_name']}</code>\n"
+        f"📌 Тема: <code>{data['subject']}#XXXX</code>\n\n"
+        "Сохранить?",
+        parse_mode="HTML",
+        reply_markup=_tpl_confirm_kb(),
+    )
+
+
+@router.callback_query(TemplateAdminStates.confirm, F.data == "smtp_tpl_confirm")
+async def cb_tpl_confirm(callback: types.CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    await state.clear()
+
+    tid = data["template_id"]
+    new_cfg = TemplateConfig(
+        sender_name=data["sender_name"],
+        subject=data["subject"],
+    )
+    tpl_apply(tid, new_cfg)
+
+    label = TEMPLATE_LABELS[tid]
+    await callback.message.edit_text(
+        f"✅ <b>Настройки шаблона {label} сохранены!</b>\n\n"
+        f"👤 Отправитель: <code>{new_cfg.sender_name}</code>\n"
+        f"📌 Тема: <code>{new_cfg.subject}#XXXX</code>",
+        parse_mode="HTML",
+        reply_markup=_admin_panel_kb(),
     )
     await callback.answer()
 
@@ -210,5 +361,5 @@ async def cb_smtp_confirm(callback: types.CallbackQuery, state: FSMContext) -> N
 @router.callback_query(F.data == "smtp_cancel")
 async def cb_smtp_cancel(callback: types.CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    await callback.message.edit_text("❌ Изменение SMTP отменено.")
+    await callback.message.edit_text("❌ Изменение отменено.")
     await callback.answer()

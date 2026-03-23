@@ -1,75 +1,33 @@
-import re
-import asyncio
 import smtplib
-import ssl
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 
 from aiogram import Bot, F, Router, types
 from aiogram.fsm.context import FSMContext
 
-import smtp_settings
-from utils.keyboards import cancel_kb, main_menu_kb
+from utils.keyboards import cancel_kb, main_menu_kb, send_email_choice_kb
+from utils.send import send_email
 from utils.states import MailerStates
+from utils.validators import EMAIL_PATTERN
 
 router = Router()
-
-EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-# ──────────────────────────────── helpers ────────────────────────────────────
-
-def _send_email_sync(
-    sender_name: str,
-    recipient: str,
-    subject: str,
-    html_body: str,
-) -> None:
-    """Blocking SMTP call — runs in a thread-pool executor."""
-    cfg = smtp_settings.current  # always read the live singleton
-
-    msg = MIMEMultipart("alternative")
-    msg["From"] = f"{sender_name} <{cfg.user}>"
-    msg["To"] = recipient
-    msg["Subject"] = subject
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
-
-    ctx = ssl.create_default_context()
-    if cfg.use_ssl:
-        # Implicit SSL/TLS (e.g. port 465)
-        with smtplib.SMTP_SSL(cfg.host, cfg.port, context=ctx, timeout=30) as smtp:
-            smtp.login(cfg.user, cfg.password)
-            smtp.sendmail(cfg.user, recipient, msg.as_string())
-    else:
-        # Opportunistic STARTTLS (e.g. port 587)
-        with smtplib.SMTP(cfg.host, cfg.port, timeout=30) as smtp:
-            smtp.ehlo()
-            if smtp.has_extn("STARTTLS"):
-                smtp.starttls(context=ctx)
-                smtp.ehlo()
-            smtp.login(cfg.user, cfg.password)
-            smtp.sendmail(cfg.user, recipient, msg.as_string())
-
-
-async def _send_email(
-    sender_name: str,
-    recipient: str,
-    subject: str,
-    html_body: str,
-) -> None:
-    loop = asyncio.get_running_loop()
-    await loop.run_in_executor(
-        None, _send_email_sync, sender_name, recipient, subject, html_body
-    )
 
 
 # ──────────────────────────────── handlers ───────────────────────────────────
 
 @router.callback_query(F.data == "send_email")
-async def cb_send_email(callback: types.CallbackQuery, state: FSMContext) -> None:
+async def cb_send_email(callback: types.CallbackQuery) -> None:
+    await callback.message.edit_text(
+        "✉️ <b>Отправка письма</b>\n\nВыберите тип шаблона:",
+        parse_mode="HTML",
+        reply_markup=send_email_choice_kb(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "custom_email")
+async def cb_custom_email(callback: types.CallbackQuery, state: FSMContext) -> None:
     await state.set_state(MailerStates.sender_name)
     await callback.message.edit_text(
-        "✉️ <b>Отправка письма</b>\n\nШаг 1/4 — Введите <b>имя отправителя</b>:",
+        "✉️ <b>Отправка письма (свой шаблон)</b>\n\nШаг 1/4 — Введите <b>имя отправителя</b>:",
         parse_mode="HTML",
         reply_markup=cancel_kb(),
     )
@@ -155,7 +113,7 @@ async def msg_template(message: types.Message, state: FSMContext, bot: Bot) -> N
 
     status_msg = await message.answer("⏳ Отправляем письмо…")
     try:
-        await _send_email(sender_name, recipient, subject, html_body)
+        await send_email(sender_name, recipient, subject, html_body)
         await status_msg.edit_text(
             f"✅ Письмо успешно отправлено!\n\n"
             f"👤 Отправитель: {sender_name}\n"
