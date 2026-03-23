@@ -32,7 +32,9 @@ def _send_email_sync(
     msg["Subject"] = subject
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ssl.create_default_context(), timeout=30) as smtp:
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as smtp:
+        smtp.ehlo()
+        smtp.starttls(context=ssl.create_default_context())
         smtp.ehlo()
         smtp.login(SMTP_USER, SMTP_PASS)
         smtp.sendmail(SMTP_USER, recipient, msg.as_string())
