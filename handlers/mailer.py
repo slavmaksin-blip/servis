@@ -34,8 +34,9 @@ def _send_email_sync(
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as smtp:
         smtp.ehlo()
-        smtp.starttls(context=ssl.create_default_context())
-        smtp.ehlo()
+        if smtp.has_extn("STARTTLS"):
+            smtp.starttls(context=ssl.create_default_context())
+            smtp.ehlo()
         smtp.login(SMTP_USER, SMTP_PASS)
         smtp.sendmail(SMTP_USER, recipient, msg.as_string())
 
