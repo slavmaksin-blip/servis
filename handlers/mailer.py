@@ -8,7 +8,7 @@ from email.mime.text import MIMEText
 from aiogram import Bot, F, Router, types
 from aiogram.fsm.context import FSMContext
 
-from config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS
+import smtp_settings
 from utils.keyboards import cancel_kb, main_menu_kb
 from utils.states import MailerStates
 
@@ -26,19 +26,29 @@ def _send_email_sync(
     html_body: str,
 ) -> None:
     """Blocking SMTP call — runs in a thread-pool executor."""
+    cfg = smtp_settings.current  # always read the live singleton
+
     msg = MIMEMultipart("alternative")
-    msg["From"] = f"{sender_name} <{SMTP_USER}>"
+    msg["From"] = f"{sender_name} <{cfg.user}>"
     msg["To"] = recipient
     msg["Subject"] = subject
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=30) as smtp:
-        smtp.ehlo()
-        if smtp.has_extn("STARTTLS"):
-            smtp.starttls(context=ssl.create_default_context())
+    ctx = ssl.create_default_context()
+    if cfg.use_ssl:
+        # Implicit SSL/TLS (e.g. port 465)
+        with smtplib.SMTP_SSL(cfg.host, cfg.port, context=ctx, timeout=30) as smtp:
+            smtp.login(cfg.user, cfg.password)
+            smtp.sendmail(cfg.user, recipient, msg.as_string())
+    else:
+        # Opportunistic STARTTLS (e.g. port 587)
+        with smtplib.SMTP(cfg.host, cfg.port, timeout=30) as smtp:
             smtp.ehlo()
-        smtp.login(SMTP_USER, SMTP_PASS)
-        smtp.sendmail(SMTP_USER, recipient, msg.as_string())
+            if smtp.has_extn("STARTTLS"):
+                smtp.starttls(context=ctx)
+                smtp.ehlo()
+            smtp.login(cfg.user, cfg.password)
+            smtp.sendmail(cfg.user, recipient, msg.as_string())
 
 
 async def _send_email(
@@ -123,7 +133,7 @@ async def msg_subject(message: types.Message, state: FSMContext) -> None:
 @router.message(MailerStates.template, F.document)
 async def msg_template(message: types.Message, state: FSMContext, bot: Bot) -> None:
     doc = message.document
-    if not doc.file_name.lower().endswith(".txt"):
+    if not (doc.file_name or "").lower().endswith(".txt"):
         await message.answer(
             "⚠️ Пожалуйста, загрузите файл в формате <b>.txt</b>.",
             parse_mode="HTML",

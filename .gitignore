@@ -19,6 +19,9 @@ ENV/
 # Environment files
 .env
 
+# Runtime SMTP override (written by /smtp command)
+smtp_override.json
+
 # IDE
 .idea/
 .vscode/

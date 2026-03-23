@@ -6,3 +6,12 @@ class MailerStates(StatesGroup):
     recipient_email = State()
     subject = State()
     template = State()
+
+
+class SmtpStates(StatesGroup):
+    host = State()
+    port = State()
+    use_ssl = State()
+    user = State()
+    password = State()
+    confirm = State()
