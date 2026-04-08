@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import httpx
 
@@ -14,11 +15,19 @@ _HEADERS = {
 }
 
 
+def _safe_json(r: httpx.Response) -> dict:
+    """Parse JSON from *r*, returning an error dict if the body is empty or not JSON."""
+    try:
+        return r.json()
+    except (json.JSONDecodeError, ValueError):
+        return {"ok": False, "error": f"HTTP {r.status_code}: empty or non-JSON response"}
+
+
 async def ping() -> dict:
     """Health-check, no auth required."""
     async with httpx.AsyncClient() as c:
         r = await c.get(f"{MENSOR_API_URL}/api/v1/ping", timeout=10)
-        return r.json()
+        return _safe_json(r)
 
 
 async def send_sms(phone: str, text: str, sender: str = "") -> dict:
@@ -37,7 +46,7 @@ async def send_sms(phone: str, text: str, sender: str = "") -> dict:
             json=payload,
             timeout=15,
         )
-    return r.json()
+    return _safe_json(r)
 
 
 async def send_email(
@@ -62,7 +71,7 @@ async def send_email(
             },
             timeout=15,
         )
-    return r.json()
+    return _safe_json(r)
 
 
 async def generate_screen(
@@ -89,7 +98,7 @@ async def generate_screen(
         )
     if r.status_code == 200:
         return r.content, None
-    error = r.json().get("error", f"HTTP {r.status_code}")
+    error = _safe_json(r).get("error", f"HTTP {r.status_code}")
     return None, error
 
 
@@ -128,5 +137,5 @@ async def generate_pdf(
         if 'filename="' in cd:
             filename = cd.split('filename="')[1].rstrip('"')
         return r.content, None, filename
-    error = r.json().get("error", f"HTTP {r.status_code}")
+    error = _safe_json(r).get("error", f"HTTP {r.status_code}")
     return None, error, ""
