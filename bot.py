@@ -29,9 +29,9 @@ from aiogram.types import (
 )
 from dotenv import load_dotenv
 
-import api as mensor
-
 load_dotenv()
+
+import api as mensor
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
