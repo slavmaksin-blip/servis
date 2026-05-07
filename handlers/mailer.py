@@ -1,0 +1,162 @@
+import smtplib
+
+from aiogram import Bot, F, Router, types
+from aiogram.fsm.context import FSMContext
+
+from utils.keyboards import cancel_kb, main_menu_kb, send_email_choice_kb
+from utils.send import send_email
+from utils.states import MailerStates
+from utils.validators import EMAIL_PATTERN
+
+router = Router()
+
+
+# ──────────────────────────────── handlers ───────────────────────────────────
+
+@router.callback_query(F.data == "send_email")
+async def cb_send_email(callback: types.CallbackQuery) -> None:
+    await callback.message.edit_text(
+        "✉️ <b>Отправка письма</b>\n\nВыберите тип шаблона:",
+        parse_mode="HTML",
+        reply_markup=send_email_choice_kb(),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "custom_email")
+async def cb_custom_email(callback: types.CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(MailerStates.sender_name)
+    await callback.message.edit_text(
+        "✉️ <b>Отправка письма (свой шаблон)</b>\n\nШаг 1/4 — Введите <b>имя отправителя</b>:",
+        parse_mode="HTML",
+        reply_markup=cancel_kb(),
+    )
+    await callback.answer()
+
+
+@router.message(MailerStates.sender_name)
+async def msg_sender_name(message: types.Message, state: FSMContext) -> None:
+    name = message.text.strip() if message.text else ""
+    if not name:
+        await message.answer(
+            "⚠️ Имя не может быть пустым. Введите имя отправителя:",
+            reply_markup=cancel_kb(),
+        )
+        return
+    await state.update_data(sender_name=name)
+    await state.set_state(MailerStates.recipient_email)
+    await message.answer(
+        "Шаг 2/4 — Введите <b>адрес получателя</b>:",
+        parse_mode="HTML",
+        reply_markup=cancel_kb(),
+    )
+
+
+@router.message(MailerStates.recipient_email)
+async def msg_recipient_email(message: types.Message, state: FSMContext) -> None:
+    email = message.text.strip() if message.text else ""
+    if not EMAIL_PATTERN.match(email):
+        await message.answer(
+            "⚠️ Неверный формат email. Введите корректный адрес получателя:",
+            reply_markup=cancel_kb(),
+        )
+        return
+    await state.update_data(recipient_email=email)
+    await state.set_state(MailerStates.subject)
+    await message.answer(
+        "Шаг 3/4 — Введите <b>тему письма</b>:",
+        parse_mode="HTML",
+        reply_markup=cancel_kb(),
+    )
+
+
+@router.message(MailerStates.subject)
+async def msg_subject(message: types.Message, state: FSMContext) -> None:
+    subject = message.text.strip() if message.text else ""
+    if not subject:
+        await message.answer(
+            "⚠️ Тема не может быть пустой. Введите тему письма:",
+            reply_markup=cancel_kb(),
+        )
+        return
+    await state.update_data(subject=subject)
+    await state.set_state(MailerStates.template)
+    await message.answer(
+        "Шаг 4/4 — Загрузите <b>шаблон письма в формате TXT</b>:",
+        parse_mode="HTML",
+        reply_markup=cancel_kb(),
+    )
+
+
+@router.message(MailerStates.template, F.document)
+async def msg_template(message: types.Message, state: FSMContext, bot: Bot) -> None:
+    doc = message.document
+    if not (doc.file_name or "").lower().endswith(".txt"):
+        await message.answer(
+            "⚠️ Пожалуйста, загрузите файл в формате <b>.txt</b>.",
+            parse_mode="HTML",
+            reply_markup=cancel_kb(),
+        )
+        return
+
+    # Download file content
+    file = await bot.get_file(doc.file_id)
+    downloaded = await bot.download_file(file.file_path)
+    html_body = downloaded.read().decode("utf-8", errors="replace")
+
+    data = await state.get_data()
+    sender_name: str = data["sender_name"]
+    recipient: str = data["recipient_email"]
+    subject: str = data["subject"]
+
+    await state.clear()
+
+    status_msg = await message.answer("⏳ Отправляем письмо…")
+    try:
+        await send_email(sender_name, recipient, subject, html_body)
+        await status_msg.edit_text(
+            f"✅ Письмо успешно отправлено!\n\n"
+            f"👤 Отправитель: {sender_name}\n"
+            f"📬 Получатель: {recipient}\n"
+            f"📌 Тема: {subject}",
+            reply_markup=main_menu_kb(),
+        )
+    except smtplib.SMTPAuthenticationError:
+        await status_msg.edit_text(
+            "❌ Ошибка аутентификации SMTP. Проверьте учётные данные.",
+            reply_markup=main_menu_kb(),
+        )
+    except smtplib.SMTPRecipientsRefused:
+        await status_msg.edit_text(
+            "❌ Адрес получателя отклонён сервером. Проверьте email получателя.",
+            reply_markup=main_menu_kb(),
+        )
+    except smtplib.SMTPException as exc:
+        await status_msg.edit_text(
+            f"❌ Ошибка SMTP при отправке письма: {exc}",
+            reply_markup=main_menu_kb(),
+        )
+    except OSError as exc:
+        await status_msg.edit_text(
+            f"❌ Ошибка сети при подключении к SMTP: {exc}",
+            reply_markup=main_menu_kb(),
+        )
+
+
+@router.message(MailerStates.template)
+async def msg_template_wrong(message: types.Message) -> None:
+    await message.answer(
+        "⚠️ Пожалуйста, загрузите файл в формате <b>.txt</b>.",
+        parse_mode="HTML",
+        reply_markup=cancel_kb(),
+    )
+
+
+@router.callback_query(F.data == "cancel")
+async def cb_cancel(callback: types.CallbackQuery, state: FSMContext) -> None:
+    await state.clear()
+    await callback.message.edit_text(
+        "❌ Действие отменено. Выберите действие:",
+        reply_markup=main_menu_kb(),
+    )
+    await callback.answer()
